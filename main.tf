@@ -32,7 +32,7 @@ resource "alicloud_alb_load_balancer" "alb" {
   load_balancer_name    = "my-alb"
   address_type          = "Internet"
   load_balancer_edition = "Standard"
-  vpc_id                = "vpc-xxxxxx"
+  vpc_id                = "vpc-2zekt4tytvq1zinj3i2q3"
 
   dynamic "zone_mappings" {
     for_each = local.ecs_zones
@@ -46,7 +46,7 @@ resource "alicloud_alb_load_balancer" "alb" {
 # 5. 创建后端服务器组（直接在 servers 中绑定 ECS）
 resource "alicloud_alb_server_group" "backend_group" {
   server_group_name = "ecs-backend-group"
-  vpc_id            = "vpc-xxxxxx"
+  vpc_id            = "vpc-2zekt4tytvq1zinj3i2q3"
   protocol          = "HTTP"
 
   health_check_config {
