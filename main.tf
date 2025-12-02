@@ -13,16 +13,16 @@ data "alicloud_vswitches" "vsw_list" {
   vpc_id = "vpc-2zekt4tytvq1zinj3i2q3"
 }
 
-# 3. 动态生成 ALB zone_mappings（去重）
+# 3. 动态生成 ALB zone_mappings（通过 vswitch_id 反查 zone_id）
 locals {
   ecs_zones = distinct([
     for i in data.alicloud_instances.ecs_list.instances : {
-      zone_id    = i.zone_id
-      vswitch_id = lookup(
-        { for vsw in data.alicloud_vswitches.vsw_list.vswitches : vsw.zone_id => vsw.id },
-        i.zone_id,
+      zone_id    = lookup(
+        { for vsw in data.alicloud_vswitches.vsw_list.vswitches : vsw.id => vsw.zone_id },
+        i.vswitch_id,
         null
       )
+      vswitch_id = i.vswitch_id
     }
   ])
 }
@@ -86,23 +86,23 @@ resource "alicloud_alb_listener" "http_listener" {
     }
   }
 }
-# 输出找到的 ECS 信息
+
+# 7. 输出调试信息
 output "ecs_list_debug" {
   description = "已匹配到的 ECS 实例及其可用区和交换机"
   value = [
     for i in data.alicloud_instances.ecs_list.instances : {
       id         = i.id
-      zone_id    = i.zone_id
-      vswitch_id = lookup(
-        { for vsw in data.alicloud_vswitches.vsw_list.vswitches : vsw.zone_id => vsw.id },
-        i.zone_id,
-        "未匹配到交换机"
+      vswitch_id = i.vswitch_id
+      zone_id    = lookup(
+        { for vsw in data.alicloud_vswitches.vsw_list.vswitches : vsw.id => vsw.zone_id },
+        i.vswitch_id,
+        "未匹配到可用区"
       )
     }
   ]
 }
 
-# 输出 ALB 的基本信息
 output "alb_info" {
   description = "ALB 基本信息"
   value = {
@@ -112,7 +112,6 @@ output "alb_info" {
   }
 }
 
-# 输出后端服务器组 ID
 output "alb_backend_group_id" {
   description = "ALB 后端服务器组 ID"
   value       = alicloud_alb_server_group.backend_group.id
