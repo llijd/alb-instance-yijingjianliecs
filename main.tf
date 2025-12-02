@@ -17,8 +17,8 @@ data "alicloud_vswitches" "vsw_list" {
 locals {
   ecs_zones = distinct([
     for i in data.alicloud_instances.ecs_list.instances : {
-      zone_id     = i.zone_id
-      v_switch_id = lookup(
+      zone_id    = i.zone_id
+      vswitch_id = lookup(
         { for vsw in data.alicloud_vswitches.vsw_list.vswitches : vsw.zone_id => vsw.id },
         i.zone_id,
         null
@@ -34,16 +34,21 @@ resource "alicloud_alb_load_balancer" "alb" {
   load_balancer_edition = "Standard"
   vpc_id                = "vpc-2zekt4tytvq1zinj3i2q3"
 
+  # 必填：计费配置
+  load_balancer_billing_config {
+    pay_type = "PostPay" # 按量付费
+  }
+
   dynamic "zone_mappings" {
     for_each = local.ecs_zones
     content {
-      zone_id     = zone_mappings.value.zone_id
-      v_switch_id = zone_mappings.value.v_switch_id
+      zone_id    = zone_mappings.value.zone_id
+      vswitch_id = zone_mappings.value.vswitch_id
     }
   }
 }
 
-# 5. 创建后端服务器组（直接在 servers 中绑定 ECS）
+# 5. 创建后端服务器组（直接绑定 ECS）
 resource "alicloud_alb_server_group" "backend_group" {
   server_group_name = "ecs-backend-group"
   vpc_id            = "vpc-2zekt4tytvq1zinj3i2q3"
