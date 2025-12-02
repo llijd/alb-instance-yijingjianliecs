@@ -38,7 +38,7 @@ variable "resource_filters" {
   }
 }
 
- 3.2 自动查询 VPC（按名称过滤）
+ #3.2 自动查询 VPC（按名称过滤）
 data "alicloud_vpcs" "existing" {
   #name_regex = var.resource_filters.vpc_name_regex
 }
