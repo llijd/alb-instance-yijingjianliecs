@@ -12,13 +12,12 @@ variable "vpc_id" {
   type        = string
   description = "阿里云VPC的ID（从HCP变量传入）"
 }
-
 # 2. 获取 VSwitch 信息（用于 zone_mappings）
 data "alicloud_vswitches" "vsw_list" {
   vpc_id = var.vpc_id
 }
 
-# 3. 动态生成 ALB zone_mappings + 适配ALB IP提取
+# 3. 动态生成 ALB zone_mappings（通过 vswitch_id 反查 zone_id）
 locals {
   ecs_zones = distinct([
     for i in data.alicloud_instances.ecs_list.instances : {
@@ -30,19 +29,12 @@ locals {
       vswitch_id = i.vswitch_id
     }
   ])
-  
-  # 修正：从 addresses 列表提取公网IP（适配最新Provider）
-  alb_public_ips = [
-    for addr in alicloud_alb_load_balancer.alb.addresses : addr.ip
-  ]
-  # 拼接为字符串（兼容原有使用习惯）
-  alb_public_ip_str = join(",", local.alb_public_ips)
 }
 
 # 4. 创建 ALB 实例（自动匹配 ECS 所在区）
 resource "alicloud_alb_load_balancer" "alb" {
   load_balancer_name    = "my-alb"
-  address_type          = "Internet"  # 公网类型，确保addresses返回公网IP
+  address_type          = "Internet"
   load_balancer_edition = "Standard"
   vpc_id                = var.vpc_id
 
@@ -72,7 +64,7 @@ resource "alicloud_alb_server_group" "backend_group" {
     health_check_path     = "/"
   }
 
-  sticky_session_config {
+sticky_session_config {
     sticky_session_enabled = false  # 不开启会话保持
     cookie                 = ""     # 关闭时可留空
     sticky_session_type    = "Insert" # 必填字段，关闭时也要传
@@ -122,25 +114,15 @@ output "ecs_list_debug" {
 }
 
 output "alb_info" {
-  description = "ALB 基本信息（含多可用区公网IP）"
+  description = "ALB 基本信息"
   value = {
-    alb_id          = alicloud_alb_load_balancer.alb.id
-    alb_name        = alicloud_alb_load_balancer.alb.load_balancer_name
-    dns_name        = alicloud_alb_load_balancer.alb.dns_name
-    public_ip_list  = local.alb_public_ips  # 多可用区IP列表（如 ["47.xx.xx.xx", "49.xx.xx.xx"]）
-    public_ip_str   = local.alb_public_ip_str  # 拼接后的IP字符串
-    # 补充：IP与可用区对应关系
-    zone_ip_mapping = [
-      for idx, zone in alicloud_alb_load_balancer.alb.zone_mappings : {
-        zone_id    = zone.zone_id
-        vswitch_id = zone.vswitch_id
-        public_ip  = local.alb_public_ips[idx]
-      }
-    ]
+    alb_id   = alicloud_alb_load_balancer.alb.id
+    alb_name = alicloud_alb_load_balancer.alb.load_balancer_name
+    address  = alicloud_alb_load_balancer.alb.dns_name
+    
   }
 }
 
 output "alb_backend_group_id" {
   description = "ALB 后端服务器组 ID"
-  value       = alicloud_alb_load_balancer.alb.id
-}
+  value       = alicloud_alb_server_group.backend_group.id
