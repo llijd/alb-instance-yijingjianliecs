@@ -3,14 +3,11 @@ provider "alicloud" {
 }
 
 # 1. 获取已有 ECS 列表（按 VPC 或标签过滤）
-data "alicloud_instances" "ecs_list" {
-  vpc_id = "vpc-2zeka1kppfberxocw6zi9"  # 你的 VPC ID
-  # tags = { "env" = "prod" } # 可选：按标签过滤
-}
+
 
 # 2. 获取 VSwitch 信息（用于 zone_mappings）
 data "alicloud_vswitches" "vsw_list" {
-  vpc_id = "vpc-2zeka1kppfberxocw6zi9"
+  vpc_id = var.vpc_id
 }
 
 # 3. 动态生成 ALB zone_mappings（通过 vswitch_id 反查 zone_id）
@@ -32,7 +29,7 @@ resource "alicloud_alb_load_balancer" "alb" {
   load_balancer_name    = "my-alb"
   address_type          = "Internet"
   load_balancer_edition = "Standard"
-  vpc_id                = "vpc-2zeka1kppfberxocw6zi9"
+  vpc_id                = var.vpc_id
 
   # 必填：计费配置
   load_balancer_billing_config {
@@ -51,7 +48,7 @@ resource "alicloud_alb_load_balancer" "alb" {
 # 5. 创建后端服务器组（直接绑定 ECS）
 resource "alicloud_alb_server_group" "backend_group" {
   server_group_name = "ecs-backend-group"
-  vpc_id            = "vpc-2zeka1kppfberxocw6zi9"
+  vpc_id            = var.vpc_id
   protocol          = "HTTP"
 
   health_check_config {
