@@ -29,6 +29,8 @@ locals {
       vswitch_id = i.vswitch_id
     }
   ])
+  # 新增：拆分 ALB 多可用区 IP 为列表
+  alb_public_ips = split(",", alicloud_alb_load_balancer.alb.address)
 }
 
 # 4. 创建 ALB 实例（自动匹配 ECS 所在区）
@@ -64,7 +66,7 @@ resource "alicloud_alb_server_group" "backend_group" {
     health_check_path     = "/"
   }
 
-sticky_session_config {
+  sticky_session_config {
     sticky_session_enabled = false  # 不开启会话保持
     cookie                 = ""     # 关闭时可留空
     sticky_session_type    = "Insert" # 必填字段，关闭时也要传
@@ -114,11 +116,20 @@ output "ecs_list_debug" {
 }
 
 output "alb_info" {
-  description = "ALB 基本信息"
+  description = "ALB 基本信息（含多可用区公网IP）"
   value = {
-    alb_id   = alicloud_alb_load_balancer.alb.id
-    alb_name = alicloud_alb_load_balancer.alb.load_balancer_name
-    address  = alicloud_alb_load_balancer.alb.dns_name
+    alb_id        = alicloud_alb_load_balancer.alb.id
+    alb_name      = alicloud_alb_load_balancer.alb.load_balancer_name
+    dns_name      = alicloud_alb_load_balancer.alb.dns_name
+    public_ip_str = alicloud_alb_load_balancer.alb.address # 拼接后的IP字符串（如 "47.xx.xx.xx,49.xx.xx.xx"）
+    public_ip_list = local.alb_public_ips # 拆分后的IP列表（如 ["47.xx.xx.xx", "49.xx.xx.xx"]）
+    zone_mappings = [ # 补充：IP 对应可用区，便于核对
+      for idx, zone in alicloud_alb_load_balancer.alb.zone_mappings : {
+        zone_id    = zone.zone_id
+        vswitch_id = zone.vswitch_id
+        public_ip  = local.alb_public_ips[idx]
+      }
+    ]
   }
 }
 
