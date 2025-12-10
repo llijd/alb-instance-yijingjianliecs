@@ -3,8 +3,15 @@ provider "alicloud" {
 }
 
 # 1. 获取已有 ECS 列表（按 VPC 或标签过滤）
-
-
+data "alicloud_instances" "ecs_list" {
+  vpc_id = var.vpc_id  # 关联VPC ID，筛选该VPC下的ECS
+  # 可选：按标签筛选（比如只选env=prod的ECS）
+  # tags = { "env" = "prod" }
+}
+variable "vpc_id" {
+  type        = string
+  description = "阿里云VPC的ID（从HCP变量传入）"
+}
 # 2. 获取 VSwitch 信息（用于 zone_mappings）
 data "alicloud_vswitches" "vsw_list" {
   vpc_id = var.vpc_id
