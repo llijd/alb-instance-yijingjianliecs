@@ -126,3 +126,4 @@ output "alb_info" {
 output "alb_backend_group_id" {
   description = "ALB 后端服务器组 ID"
   value       = alicloud_alb_server_group.backend_group.id
+}
